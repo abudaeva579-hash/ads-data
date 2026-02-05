@@ -185,7 +185,60 @@ Admins can track A/B results via an authenticated API:
 
 ---
 
-## 13. File Reference
+## 13. Instrumentation Safeguards and Data Integrity Guarantees
+
+To ensure that collected experiment metrics are reliable, interpretable, and aligned with the goals of Milestone 1, the system enforces several instrumentation safeguards that prevent common analytics errors.
+
+### 13.1 Single-Exposure Guarantee per Request
+
+Exposure logging is designed to ensure that:
+- An exposure is recorded **only when an experiment-related route is accessed**, and
+- Each exposure record corresponds to a single `(visitor_id, test_id, variant)` observation at a specific timestamp.
+
+This prevents accidental double-counting of exposures due to unrelated API calls, background polling, or retries.
+
+### 13.2 Explicit Event Attribution
+
+All logged events explicitly include:
+- `event_name`
+- `test_id` (when applicable)
+- `variant` (A or B)
+- `visitor_id`
+- `timestamp`
+
+Events that are not associated with an experiment (e.g., generic system actions) can be logged without a `test_id`, ensuring that experiment metrics remain isolated and are not polluted by unrelated traffic.
+
+### 13.3 Separation of Concerns Between Exposure and Events
+
+The system enforces a strict separation between:
+- **Exposure** — automatic, middleware-driven, and recorded when a user is shown a variant; and
+- **Events** — explicit, action-driven, and logged only when the user performs a desirable action.
+
+This separation guarantees that:
+- Exposure counts are not inflated by user interactions.
+- Conversion rates are well-defined as `target_event_count ÷ exposure_count`.
+
+### 13.4 Failure Visibility and Early Error Detection
+
+If experiment configuration is malformed or missing required fields (e.g., variants A/B or `target_event`), the system fails early during startup rather than silently logging incorrect or incomplete data. This design choice prioritizes analytics correctness and data integrity over partial availability.
+
+Together, these safeguards ensure that experiment data accurately reflects user behavior and that derived metrics (counts, conversion rates, and lift) remain meaningful and auditable.
+
+---
+
+## 14. Limitations and Future Extensions
+
+While the current implementation satisfies Milestone 1 requirements, several extensions are intentionally deferred to future work:
+
+- **Statistical testing** (e.g., confidence intervals, hypothesis testing) could be layered on top of the existing metrics without changing logging infrastructure.
+- **Multi-variant experiments** (A/B/C/…) could be supported by extending the `variants` field in `tests.json` and generalizing assignment logic.
+- **Cross-session user identity** (e.g., account-based assignment) could replace cookies for authenticated users.
+- **Database-backed or streaming storage** could replace file-based logs for production-scale workloads and improved reliability under concurrency.
+
+These limitations do not affect the correctness of the current milestone but highlight that the infrastructure is designed to be extensible beyond the scope of this assignment.
+
+
+## 15. File Reference
 
 | File | Purpose |
 |------|---------|
